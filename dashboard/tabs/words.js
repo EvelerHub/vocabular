@@ -6,7 +6,9 @@
 //   - Per-row Normalize button
 //   - Bulk "Normalize all raw" button
 //   - "Find Duplicates" button with merge/keep/delete UI
-//   - Delete word
+//   - Per-row delete
+//   - Row checkboxes + "Delete selected" bulk action
+//   - "Delete all" button (filter-aware)
 
 /* global storage, getNormalizer, getDeduplicator, vocDash */
 
@@ -15,12 +17,13 @@ const wordsTab = (function () {
 
   const POS_OPTIONS = ['', 'verb', 'adj', 'adv', 'noun', 'phrase'];
 
-  let allWords   = [];
-  let normalizer = null;
+  let allWords     = [];
+  let normalizer   = null;
   let deduplicator = null;
   let currentFilter = { status: '', pos: '', search: '' };
-  let dupGroups  = [];   // current duplicate groups shown
-  let settings   = {};
+  let dupGroups    = [];
+  let selectedIds  = new Set();  // ids of checked rows
+  let settings     = {};
 
   // ── Init ───────────────────────────────────────────────────────────────────
 
@@ -43,6 +46,7 @@ const wordsTab = (function () {
     deduplicator = getDeduplicator(settings);
     allWords     = await storage.getWords();
     dupGroups    = [];
+    selectedIds  = new Set();
     renderTable();
     vocDash.setWordCount(allWords.length);
   }
@@ -75,6 +79,8 @@ const wordsTab = (function () {
         <div style="flex:1"></div>
         <button id="btn-normalize-all" class="btn btn-primary">⚡ Normalize all raw</button>
         <button id="btn-find-dups" class="btn">🔍 Find duplicates</button>
+        <button id="btn-delete-selected" class="btn btn-danger" style="display:none">🗑 Delete selected (<span id="selected-count">0</span>)</button>
+        <button id="btn-delete-all" class="btn btn-danger">🗑 Delete all</button>
       </div>
 
       <!-- Duplicate groups panel (hidden until "Find duplicates" runs) -->
@@ -85,6 +91,7 @@ const wordsTab = (function () {
         <table id="words-table">
           <thead>
             <tr>
+              <th class="col-check"><input type="checkbox" id="chk-select-all" title="Select all visible"></th>
               <th class="col-word">Word</th>
               <th class="col-trans">Translation</th>
               <th class="col-canonical">Canonical</th>
@@ -96,7 +103,7 @@ const wordsTab = (function () {
             </tr>
           </thead>
           <tbody id="words-tbody">
-            <tr><td colspan="8" style="text-align:center;padding:40px;color:#9aa0a6">
+            <tr><td colspan="9" style="text-align:center;padding:40px;color:#9aa0a6">
               <span class="spinner"></span> Loading…
             </td></tr>
           </tbody>
@@ -119,6 +126,9 @@ const wordsTab = (function () {
     });
     document.getElementById('btn-normalize-all').addEventListener('click', normalizeAllRaw);
     document.getElementById('btn-find-dups').addEventListener('click', findDuplicates);
+    document.getElementById('btn-delete-selected').addEventListener('click', deleteSelected);
+    document.getElementById('btn-delete-all').addEventListener('click', deleteAll);
+    document.getElementById('chk-select-all').addEventListener('change', onSelectAll);
 
     // Initial data load
     reload();
@@ -147,7 +157,7 @@ const wordsTab = (function () {
     vocDash.setWordCount(allWords.length);
 
     if (words.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="8">
+      tbody.innerHTML = `<tr><td colspan="9">
         <div class="empty-state">
           <div class="empty-state-icon">📭</div>
           <div class="empty-state-title">${allWords.length === 0 ? 'No words saved yet' : 'No words match the filter'}</div>
@@ -157,6 +167,7 @@ const wordsTab = (function () {
           }</div>
         </div>
       </td></tr>`;
+      updateSelectionUI();
       return;
     }
 
@@ -167,6 +178,7 @@ const wordsTab = (function () {
 
     // Bind row-level events after injecting HTML
     bindRowEvents(tbody);
+    updateSelectionUI();
   }
 
   function rowHtml(w, isDup) {
@@ -174,9 +186,11 @@ const wordsTab = (function () {
     const posClass = w.pos ? `pos-${esc(w.pos)}` : 'pos-empty';
     const posLabel = w.pos || '—';
     const statusClass = `status-${esc(w.status)}`;
+    const checked = selectedIds.has(w.id) ? 'checked' : '';
 
     return `
       <tr data-id="${esc(w.id)}" class="${isDup ? 'dup-highlight' : ''}">
+        <td class="col-check"><input type="checkbox" class="row-chk" data-id="${esc(w.id)}" ${checked}></td>
         <td class="col-word">${esc(w.word)}</td>
         <td class="col-trans">${esc(w.translation)}</td>
         <td class="col-canonical">
@@ -223,6 +237,18 @@ const wordsTab = (function () {
     // Delete row
     tbody.querySelectorAll('.btn-delete').forEach(btn => {
       btn.addEventListener('click', () => deleteWord(btn.dataset.id));
+    });
+
+    // Row checkboxes
+    tbody.querySelectorAll('.row-chk').forEach(chk => {
+      chk.addEventListener('change', () => {
+        if (chk.checked) {
+          selectedIds.add(chk.dataset.id);
+        } else {
+          selectedIds.delete(chk.dataset.id);
+        }
+        updateSelectionUI();
+      });
     });
   }
 
@@ -381,11 +407,93 @@ const wordsTab = (function () {
     try {
       await storage.deleteWord(id);
       allWords = allWords.filter(w => w.id !== id);
+      selectedIds.delete(id);
       vocDash.toast('Word deleted.');
     } catch (err) {
       vocDash.toast('Delete failed: ' + err.message, 'error');
     }
     renderTable();
+  }
+
+  // ── Bulk delete ────────────────────────────────────────────────────────────
+
+  /**
+   * Updates the "Delete selected" button visibility/count and the select-all
+   * checkbox state to reflect the current selection.
+   */
+  function updateSelectionUI() {
+    const btnDelSelected = document.getElementById('btn-delete-selected');
+    const countEl        = document.getElementById('selected-count');
+    const chkAll         = document.getElementById('chk-select-all');
+    if (!btnDelSelected) return;
+
+    const visibleIds = filteredWords().map(w => w.id);
+    const count      = visibleIds.filter(id => selectedIds.has(id)).length;
+
+    countEl.textContent = count;
+    btnDelSelected.style.display = count > 0 ? '' : 'none';
+
+    if (chkAll) {
+      chkAll.checked       = visibleIds.length > 0 && visibleIds.every(id => selectedIds.has(id));
+      chkAll.indeterminate = count > 0 && count < visibleIds.length;
+    }
+  }
+
+  /** Toggles selection of all currently visible rows. */
+  function onSelectAll(e) {
+    const visibleIds = filteredWords().map(w => w.id);
+    if (e.target.checked) {
+      visibleIds.forEach(id => selectedIds.add(id));
+    } else {
+      visibleIds.forEach(id => selectedIds.delete(id));
+    }
+    renderTable();
+  }
+
+  /** Deletes only the currently selected rows. */
+  async function deleteSelected() {
+    const ids = [...selectedIds];
+    if (ids.length === 0) return;
+    if (!confirm(`Delete ${ids.length} selected word${ids.length !== 1 ? 's' : ''}?`)) return;
+
+    try {
+      await storage.deleteWords(ids);
+      allWords = allWords.filter(w => !selectedIds.has(w.id));
+      selectedIds = new Set();
+      vocDash.toast(`Deleted ${ids.length} word${ids.length !== 1 ? 's' : ''}.`, 'success');
+    } catch (err) {
+      vocDash.toast('Delete failed: ' + err.message, 'error');
+    }
+    renderTable();
+    vocDash.setWordCount(allWords.length);
+  }
+
+  /**
+   * Deletes ALL words currently visible (respects active filters).
+   * If no filter is active, this clears the entire word list.
+   */
+  async function deleteAll() {
+    const visible = filteredWords();
+    if (visible.length === 0) return;
+
+    const isFiltered = currentFilter.status || currentFilter.pos || currentFilter.search;
+    const msg = isFiltered
+      ? `Delete all ${visible.length} matching word${visible.length !== 1 ? 's' : ''}?`
+      : `Delete ALL ${visible.length} word${visible.length !== 1 ? 's' : ''}? This cannot be undone.`;
+
+    if (!confirm(msg)) return;
+
+    const ids = visible.map(w => w.id);
+    try {
+      await storage.deleteWords(ids);
+      allWords = allWords.filter(w => !ids.includes(w.id));
+      selectedIds = new Set();
+      vocDash.toast(`Deleted ${ids.length} word${ids.length !== 1 ? 's' : ''}.`, 'success');
+    } catch (err) {
+      vocDash.toast('Delete failed: ' + err.message, 'error');
+    }
+    renderTable();
+    vocDash.setWordCount(allWords.length);
   }
 
   // ── Find duplicates ────────────────────────────────────────────────────────

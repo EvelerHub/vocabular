@@ -137,7 +137,7 @@ with no backend, no install step beyond loading the extension.
 
 1. The dashboard SHALL be a full extension page (`dashboard/index.html`) opened from the popup.
 2. The Words tab SHALL display all saved words in a table with columns:
-   `word | translation | canonical | POS | status | saved date | actions`
+   `(checkbox) | word | translation | canonical | POS | status | saved date | actions`
 3. The user SHALL be able to:
    - Edit `canonical` and `pos` inline
    - Trigger "Normalize" on a single word (runs `INormalizer`)
@@ -146,6 +146,20 @@ with no backend, no install step beyond loading the extension.
    - Add a manual note
 4. A "Find Duplicates" button SHALL run `IDuplicateDetector` and highlight duplicate groups.
    For each group the user can: keep one, merge (concatenate notes), or delete extras.
+5. **Bulk delete — select and delete:**
+   - Each row SHALL have a checkbox. A header checkbox SHALL select / deselect all currently
+     visible rows (respecting active filters).
+   - When one or more rows are selected, a **"Delete selected (N)"** button SHALL appear in
+     the toolbar. Clicking it SHALL prompt for confirmation then delete only the selected words
+     in a single storage write.
+6. **Delete All:**
+   - A **"Delete all"** button SHALL always be visible in the toolbar.
+   - If filters are active, it SHALL delete only the words currently visible (matching the
+     filter), with a confirmation message stating how many words will be deleted.
+   - If no filters are active, it SHALL delete every word in storage, with a confirmation
+     message warning that this cannot be undone.
+   - Both "Delete selected" and "Delete all" SHALL use a single `storage.deleteWords(ids)`
+     call rather than looping over `storage.deleteWord(id)` to avoid unnecessary storage writes.
 
 ### REQ-07 — Dashboard: Groups Tab
 
