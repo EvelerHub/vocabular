@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vocabular</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div id="app">
+
+    <!-- Header -->
+    <header class="header">
+      <span class="logo">📖 Vocabular</span>
+      <button id="btn-dashboard" class="btn-link" title="Open full dashboard">Dashboard →</button>
+    </header>
+
+    <!-- Stats bar -->
+    <section class="stats" id="stats">
+      <div class="stat">
+        <span class="stat-value" id="stat-total">—</span>
+        <span class="stat-label">saved</span>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat">
+        <span class="stat-value" id="stat-pending">—</span>
+        <span class="stat-label">to normalize</span>
+      </div>
+    </section>
+
+    <!-- Recent words -->
+    <section class="recent">
+      <div class="section-title">Recent</div>
+      <ul id="recent-list" class="word-list">
+        <li class="word-item placeholder">Loading…</li>
+      </ul>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <button id="btn-dashboard-footer" class="btn-primary">Open Dashboard</button>
+    </footer>
+
+  </div>
+
+  <script src="../lib/browser-polyfill.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

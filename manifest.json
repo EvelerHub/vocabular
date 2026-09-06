@@ -11,16 +11,17 @@
   ],
 
   "host_permissions": [
-    "https://translate.google.com/*"
+    "https://translate.google.*/*"
   ],
 
   "background": {
+    "scripts": ["lib/uuid.js", "lib/storage.js", "background.js"],
     "service_worker": "background.js"
   },
 
   "content_scripts": [
     {
-      "matches": ["https://translate.google.com/*"],
+      "matches": ["https://translate.google.*/*"],
       "js": ["lib/browser-polyfill.js", "content/google_translate.js"],
       "css": ["content/content.css"],
       "run_at": "document_idle"

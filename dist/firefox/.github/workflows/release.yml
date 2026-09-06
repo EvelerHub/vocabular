@@ -1,0 +1,128 @@
+name: Release
+
+# Trigger by pushing a version tag: git tag v1.2.3 && git push origin v1.2.3
+# Or run manually from the Actions tab with a version number.
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number (e.g. 1.0.0, without the v prefix)'
+        required: true
+
+jobs:
+  release:
+    name: Build & Release (Chrome + Firefox)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+            echo "TAG=v${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+            echo "TAG=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
+          fi
+
+      # When triggered manually there is no git tag yet — create one so the
+      # release action has something to attach the release to.
+      - name: Create tag (manual run only)
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "${{ steps.version.outputs.TAG }}"
+          git push origin "${{ steps.version.outputs.TAG }}"
+
+      - name: Update version in manifests
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          sed -i "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" manifest.chrome.json
+          sed -i "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" manifest.firefox.json
+
+      # ── Chrome ─────────────────────────────────────────────────────────────
+
+      - name: Build Chrome
+        run: |
+          mkdir -p dist/chrome
+          rsync -a \
+            --exclude="manifest.chrome.json" \
+            --exclude="manifest.firefox.json" \
+            --exclude="manifest.json" \
+            --exclude="dist/" \
+            --exclude=".github/" \
+            --exclude=".kiro/" \
+            --exclude="build.sh" \
+            --exclude=".git/" \
+            . dist/chrome/
+          cp manifest.chrome.json dist/chrome/manifest.json
+
+      - name: Package Chrome (.zip)
+        run: |
+          cd dist/chrome
+          zip -r ../../vocabular-chrome-${{ steps.version.outputs.VERSION }}.zip .
+
+      # ── Firefox ────────────────────────────────────────────────────────────
+
+      - name: Build Firefox
+        run: |
+          mkdir -p dist/firefox
+          rsync -a \
+            --exclude="manifest.chrome.json" \
+            --exclude="manifest.firefox.json" \
+            --exclude="manifest.json" \
+            --exclude="dist/" \
+            --exclude=".github/" \
+            --exclude=".kiro/" \
+            --exclude="build.sh" \
+            --exclude=".git/" \
+            . dist/firefox/
+          cp manifest.firefox.json dist/firefox/manifest.json
+
+      - name: Package Firefox (.zip)
+        run: |
+          cd dist/firefox
+          zip -r ../../vocabular-firefox-${{ steps.version.outputs.VERSION }}.zip .
+
+      # ── GitHub Release ──────────────────────────────────────────────────────
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.TAG }}
+          name: "Vocabular v${{ steps.version.outputs.VERSION }}"
+          body: |
+            ## Installation
+
+            ### Chrome / Chromium / Edge
+            1. Download `vocabular-chrome-${{ steps.version.outputs.VERSION }}.zip` and unzip it
+            2. Go to `chrome://extensions` → enable **Developer mode**
+            3. Click **Load unpacked** → select the unzipped folder
+
+            ### Firefox
+            1. Download `vocabular-firefox-${{ steps.version.outputs.VERSION }}.zip` *(do not unzip)*
+            2. Go to `about:debugging#/runtime/this-firefox`
+            3. Click **Load Temporary Add-on…** → select the `.zip` file
+
+            > The temporary add-on is removed when Firefox restarts.
+            > For a **persistent install without signing**, use Firefox Developer Edition or Firefox Nightly:
+            > 1. Go to `about:config` → accept the risk warning
+            > 2. Set `xpinstall.signatures.required` to `false`
+            > 3. Go to `about:addons` → gear icon → **Install Add-on From File** → select the `.zip`
+            >
+            > Standard Firefox releases cannot permanently install unsigned extensions.
+          files: |
+            vocabular-chrome-${{ steps.version.outputs.VERSION }}.zip
+            vocabular-firefox-${{ steps.version.outputs.VERSION }}.zip
+          draft: false
+          prerelease: false

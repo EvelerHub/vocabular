@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vocabular Dashboard</title>
+  <link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+  <div id="app">
+
+    <!-- ── Top bar ──────────────────────────────────────────────────────── -->
+    <header class="topbar">
+      <span class="topbar-logo">📖 Vocabular</span>
+      <nav class="tab-bar" role="tablist">
+        <button class="tab-btn active" data-tab="words"    role="tab" aria-selected="true">
+          Words <span class="tab-count" id="tab-count-words"></span>
+        </button>
+        <button class="tab-btn" data-tab="groups"   role="tab" aria-selected="false">Groups</button>
+        <button class="tab-btn" data-tab="export"   role="tab" aria-selected="false">Export</button>
+        <button class="tab-btn" data-tab="settings" role="tab" aria-selected="false">Settings</button>
+      </nav>
+    </header>
+
+    <!-- ── Tab panels ───────────────────────────────────────────────────── -->
+    <main class="tab-content">
+
+      <!-- Words tab -->
+      <section id="tab-words" class="tab-panel active" role="tabpanel">
+        <div id="words-root"></div>
+      </section>
+
+      <!-- Groups tab -->
+      <section id="tab-groups" class="tab-panel" role="tabpanel">
+        <div id="groups-root"></div>
+      </section>
+
+      <!-- Export tab -->
+      <section id="tab-export" class="tab-panel" role="tabpanel">
+        <div id="export-root"></div>
+      </section>
+
+      <!-- Settings tab -->
+      <section id="tab-settings" class="tab-panel" role="tabpanel">
+        <div id="settings-root"></div>
+      </section>
+
+    </main>
+
+  </div>
+
+  <!-- Libraries (load order matters) -->
+  <script src="../lib/browser-polyfill.js"></script>
+  <script src="../lib/uuid.js"></script>
+  <script src="../lib/storage.js"></script>
+  <script src="../lib/compromise.min.js"></script>
+  <script src="../lib/normalizer.js"></script>
+  <script src="../lib/deduplicator.js"></script>
+  <script src="../lib/exporter.js"></script>
+
+  <!-- Tab modules -->
+  <script src="tabs/words.js"></script>
+  <script src="tabs/groups.js"></script>
+  <script src="tabs/export.js"></script>
+  <script src="tabs/settings.js"></script>
+
+  <!-- Shell controller (boots last) -->
+  <script src="dashboard.js"></script>
+</body>
+</html>

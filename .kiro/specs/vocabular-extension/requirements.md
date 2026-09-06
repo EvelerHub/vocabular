@@ -201,10 +201,20 @@ with no backend, no install step beyond loading the extension.
 
 1. The extension SHALL use Manifest V3.
 2. It SHALL work in Chrome and Chromium-based browsers without modification.
-3. It SHALL work in Firefox with only packaging differences (no code changes). Firefox
-   requires `browser_specific_settings` in `manifest.json` and uses `browser.*` APIs —
-   a thin compatibility shim (`lib/browser-polyfill.js` or the `webextension-polyfill` library)
-   SHALL be used so all code uses `chrome.*` uniformly.
+3. It SHALL work in Firefox (109+) using the same JS codebase with a different manifest:
+   - `manifest.chrome.json` — uses `background.service_worker` (Chrome MV3 requirement)
+   - `manifest.firefox.json` — uses `background.scripts` array (Firefox MV3 requirement,
+     which does not support `importScripts` in service workers)
+   - `build.sh` copies the correct manifest as `manifest.json` into `dist/chrome/` or
+     `dist/firefox/` for loading as an unpacked extension
+4. All JS files SHALL resolve the extension API using a local `ext` variable or an inline
+   shim before calling any `chrome.*` APIs, to handle Firefox exposing `browser` instead
+   of `chrome` in some contexts.
+5. The `lib/browser-polyfill.js` (webextension-polyfill) SHALL be loaded in content scripts,
+   popup, and dashboard via `<script>` tags or the manifest `js` array. It SHALL NOT be
+   loaded in the background service worker (it throws when `chrome.runtime` is absent).
+6. No code changes are required when switching between Chrome and Firefox builds — only
+   the manifest file differs.
 
 ### REQ-12 — No External Network Calls
 

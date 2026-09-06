@@ -1,0 +1,85 @@
+{
+  "manifest_version": 3,
+  "name": "Vocabular",
+  "version": "1.0.0",
+  "description": "Save translations from Google Translate, normalize them, and export to Quizlet.",
+
+  "permissions": [
+    "storage",
+    "scripting",
+    "clipboardWrite"
+  ],
+
+  "host_permissions": [
+    "https://translate.google.com/*",
+    "https://translate.google.com.ua/*",
+    "https://translate.google.co.uk/*",
+    "https://translate.google.de/*",
+    "https://translate.google.fr/*",
+    "https://translate.google.es/*",
+    "https://translate.google.it/*",
+    "https://translate.google.pl/*",
+    "https://translate.google.com.br/*",
+    "https://translate.google.ca/*",
+    "https://translate.google.com.au/*",
+    "https://translate.google.co.in/*",
+    "https://translate.google.co.jp/*"
+  ],
+
+  "background": {
+    "scripts": ["lib/uuid.js", "lib/storage.js", "background.js"]
+  },
+
+  "content_scripts": [
+    {
+      "matches": [
+        "https://translate.google.com/*",
+        "https://translate.google.com.ua/*",
+        "https://translate.google.co.uk/*",
+        "https://translate.google.de/*",
+        "https://translate.google.fr/*",
+        "https://translate.google.es/*",
+        "https://translate.google.it/*",
+        "https://translate.google.pl/*",
+        "https://translate.google.com.br/*",
+        "https://translate.google.ca/*",
+        "https://translate.google.com.au/*",
+        "https://translate.google.co.in/*",
+        "https://translate.google.co.jp/*"
+      ],
+      "js": ["lib/browser-polyfill.js", "content/google_translate.js"],
+      "css": ["content/content.css"],
+      "run_at": "document_idle"
+    }
+  ],
+
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16":  "icons/icon16.png",
+      "48":  "icons/icon48.png",
+      "128": "icons/icon128.png"
+    },
+    "default_title": "Vocabular"
+  },
+
+  "web_accessible_resources": [
+    {
+      "resources": ["dashboard/index.html"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "vocabular@local",
+      "strict_min_version": "109.0"
+    }
+  },
+
+  "icons": {
+    "16":  "icons/icon16.png",
+    "48":  "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
