@@ -2,7 +2,7 @@
 //
 // Features:
 //   - Filterable/searchable word table
-//   - Inline editing of canonical and POS
+//   - Inline editing of all columns
 //   - Per-row Normalize button
 //   - Bulk "Normalize all raw" button
 //   - "Find Duplicates" button with merge/keep/delete UI
@@ -16,6 +16,7 @@ const wordsTab = (function () {
   'use strict';
 
   const POS_OPTIONS = ['', 'verb', 'adj', 'adv', 'noun', 'phrase'];
+  const STATUS_OPTIONS = ['raw', 'normalized', 'grouped', 'exported'];
 
   let allWords     = [];
   let normalizer   = null;
@@ -191,8 +192,14 @@ const wordsTab = (function () {
     return `
       <tr data-id="${esc(w.id)}" class="${isDup ? 'dup-highlight' : ''}">
         <td class="col-check"><input type="checkbox" class="row-chk" data-id="${esc(w.id)}" ${checked}></td>
-        <td class="col-word">${esc(w.word)}</td>
-        <td class="col-trans">${esc(w.translation)}</td>
+        <td class="col-word">
+          <span class="editable" data-field="word" data-id="${esc(w.id)}"
+                title="Click to edit">${esc(w.word)}</span>
+        </td>
+        <td class="col-trans">
+          <span class="editable" data-field="translation" data-id="${esc(w.id)}"
+                title="Click to edit">${esc(w.translation || '—')}</span>
+        </td>
         <td class="col-canonical">
           <span class="editable" data-field="canonical" data-id="${esc(w.id)}"
                 title="Click to edit">${esc(w.canonical || '—')}</span>
@@ -202,9 +209,13 @@ const wordsTab = (function () {
                 title="Click to change POS">${esc(posLabel)}</span>
         </td>
         <td class="col-status">
-          <span class="status-badge ${statusClass}">${esc(w.status)}</span>
+          <span class="status-badge ${statusClass}" data-field="status" data-id="${esc(w.id)}"
+                title="Click to change status">${esc(w.status)}</span>
         </td>
-        <td class="col-date">${esc(vocDash.formatDate(w.savedAt))}</td>
+        <td class="col-date">
+          <span class="editable" data-field="savedAt" data-id="${esc(w.id)}"
+                title="Click to edit date">${esc(vocDash.formatDate(w.savedAt))}</span>
+        </td>
         <td class="col-notes">
           <span class="notes-text editable" data-field="notes" data-id="${esc(w.id)}"
                 title="Click to edit notes">${esc(w.notes || '')}</span>
@@ -224,9 +235,12 @@ const wordsTab = (function () {
       el.addEventListener('click', onEditableClick);
     });
 
-    // POS badge click — open inline select
+    // POS / status badge click — open inline select
     tbody.querySelectorAll('.pos-badge[data-field="pos"]').forEach(el => {
       el.addEventListener('click', onPosClick);
+    });
+    tbody.querySelectorAll('.status-badge[data-field="status"]').forEach(el => {
+      el.addEventListener('click', onStatusClick);
     });
 
     // Normalize single row
@@ -252,7 +266,7 @@ const wordsTab = (function () {
     });
   }
 
-  // ── Inline editing — canonical / notes ────────────────────────────────────
+  // ── Inline editing — word / translation / canonical / notes / date ────────
 
   function onEditableClick(e) {
     const el    = e.currentTarget;
@@ -261,10 +275,11 @@ const wordsTab = (function () {
     const word  = allWords.find(w => w.id === id);
     if (!word) return;
 
-    const current = word[field] || '';
+    const isDate  = field === 'savedAt';
+    const current = isDate ? (word.savedAt || '').slice(0, 10) : (word[field] || '');
 
     const input = document.createElement('input');
-    input.type      = 'text';
+    input.type      = isDate ? 'date' : 'text';
     input.className = 'inline-input';
     input.value     = current;
 
@@ -274,7 +289,16 @@ const wordsTab = (function () {
 
     async function save() {
       const newVal = input.value.trim();
-      const patch  = { [field]: newVal };
+      if (newVal === current) { renderTable(); return; }
+      if ((field === 'word' || isDate) && !newVal) {
+        vocDash.toast(isDate ? 'Date cannot be empty.' : 'Word cannot be empty.', 'error');
+        renderTable();
+        return;
+      }
+      // Date edits keep the original time-of-day so ordering within a day is stable
+      const patch = isDate
+        ? { savedAt: newVal + (word.savedAt || '').slice(10) }
+        : { [field]: newVal };
 
       // If canonical was edited, auto-update status to 'normalized' (if still 'raw')
       if (field === 'canonical' && word.status === 'raw' && newVal) {
@@ -333,6 +357,40 @@ const wordsTab = (function () {
 
     sel.addEventListener('change', save);
     sel.addEventListener('blur',   () => { setTimeout(renderTable, 80); });
+  }
+
+  // ── Inline status select ───────────────────────────────────────────────────
+
+  function onStatusClick(e) {
+    const el   = e.currentTarget;
+    const id   = el.dataset.id;
+    const word = allWords.find(w => w.id === id);
+    if (!word) return;
+
+    const sel = document.createElement('select');
+    sel.className = 'inline-select';
+    STATUS_OPTIONS.forEach(opt => {
+      const o = document.createElement('option');
+      o.value = opt;
+      o.textContent = opt;
+      if (opt === word.status) o.selected = true;
+      sel.appendChild(o);
+    });
+
+    el.replaceWith(sel);
+    sel.focus();
+
+    sel.addEventListener('change', async () => {
+      try {
+        const updated = await storage.updateWord(id, { status: sel.value });
+        const idx = allWords.findIndex(w => w.id === id);
+        if (idx !== -1) allWords[idx] = updated;
+      } catch (err) {
+        vocDash.toast('Save failed: ' + err.message, 'error');
+      }
+      renderTable();
+    });
+    sel.addEventListener('blur', () => { setTimeout(renderTable, 80); });
   }
 
   // ── Normalize single word ──────────────────────────────────────────────────
@@ -545,11 +603,14 @@ const wordsTab = (function () {
             <div class="dup-actions">
               <button class="btn btn-sm btn-keep-first" data-gi="${gi}">Keep first, delete rest</button>
               <button class="btn btn-sm btn-merge"      data-gi="${gi}">Merge notes</button>
-              <button class="btn btn-sm"               data-gi="${gi}" onclick="vocDash.toast('Skipped.')">Skip</button>
+              <button class="btn btn-sm btn-skip"      data-gi="${gi}">Skip</button>
             </div>
           </div>`).join('')}
       </div>`;
 
+    panel.querySelectorAll('.btn-skip').forEach(btn => {
+      btn.addEventListener('click', () => vocDash.toast('Skipped.'));
+    });
     panel.querySelectorAll('.btn-keep-first').forEach(btn => {
       btn.addEventListener('click', () => resolveKeepFirst(parseInt(btn.dataset.gi)));
     });

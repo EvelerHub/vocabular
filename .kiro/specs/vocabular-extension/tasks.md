@@ -2,11 +2,11 @@
 
 ## Task 01 — Project Scaffold & Manifest
 
-- [ ] Create directory structure: `content/`, `popup/`, `dashboard/tabs/`, `lib/`, `icons/`
-- [ ] Create `manifest.json` (MV3, permissions: storage, scripting, host: translate.google.com)
-- [ ] Add placeholder icon files (simple colored squares) at 16×16, 48×48, 128×128
-- [ ] Download and bundle `compromise.min.js` into `lib/`
-- [ ] Download and bundle `webextension-polyfill` into `lib/browser-polyfill.js`
+- [x] Create directory structure: `content/`, `popup/`, `dashboard/tabs/`, `lib/`, `icons/`
+- [x] Create `manifest.json` (MV3, permissions: storage, scripting, host: translate.google.com)
+- [x] Add placeholder icon files (simple colored squares) at 16×16, 48×48, 128×128
+- [x] Download and bundle `compromise.min.js` into `lib/`
+- [x] Download and bundle `webextension-polyfill` into `lib/browser-polyfill.js`
 
 **Acceptance:** Extension loads in Chrome without errors (chrome://extensions → Load unpacked)
 
@@ -14,14 +14,14 @@
 
 ## Task 02 — Storage Service
 
-- [ ] Create `lib/uuid.js` — generates RFC4122 v4 UUIDs without external deps
-- [ ] Create `lib/storage.js` with the full storage service API:
+- [x] Create `lib/uuid.js` — generates RFC4122 v4 UUIDs without external deps
+- [x] Create `lib/storage.js` with the full storage service API:
   - `getWords`, `saveWord`, `updateWord`, `deleteWord`
   - `getGroups`, `saveGroup`, `updateGroup`
   - `getSettings`, `saveSettings`
   - `exportAll`, `importAll`
-- [ ] Define and export TypeScript-style JSDoc type annotations for `Word`, `Group`, `Settings`
-- [ ] Default settings must be merged on `getSettings()` so missing keys are never undefined
+- [x] Define and export TypeScript-style JSDoc type annotations for `Word`, `Group`, `Settings`
+- [x] Default settings must be merged on `getSettings()` so missing keys are never undefined
 
 **Acceptance:** Can call `storage.saveWord({...})` from the browser console on any extension page and verify the entry appears in `chrome.storage.local` via DevTools.
 
@@ -29,13 +29,13 @@
 
 ## Task 03 — Background Service Worker
 
-- [ ] Create `background.js`
-- [ ] Handle message `{ action: 'save', payload }`:
+- [x] Create `background.js`
+- [x] Handle message `{ action: 'save', payload }`:
   - Check duplicate: same `word` + `langFrom` + `langTo` already in storage
   - If duplicate: reply `{ ok: false, reason: 'duplicate' }`
   - Else: call `storage.saveWord(payload)`, reply `{ ok: true, word }`
-- [ ] Handle message `{ action: 'getRecentWords' }` → last 5 by `savedAt`
-- [ ] Handle message `{ action: 'getStats' }` → `{ total, pendingNormalization }`
+- [x] Handle message `{ action: 'getRecentWords' }` → last 5 by `savedAt`
+- [x] Handle message `{ action: 'getStats' }` → `{ total, pendingNormalization }`
 
 **Acceptance:** Send messages from DevTools console, verify correct responses.
 
@@ -43,15 +43,15 @@
 
 ## Task 04 — Google Translate Content Script
 
-- [ ] Create `content/google_translate.js`
-- [ ] Set up `MutationObserver` watching the translation result container
-- [ ] Detect primary translation result element and inject a Save button
-- [ ] Detect alternative translation rows and inject a Save button on each
-- [ ] Read `word` (source input), `translation` (target text), `langFrom`, `langTo` from the page
-- [ ] On Save button click: send `{ action: 'save', payload }` to background
-- [ ] Handle response states: default / sending / "Saved ✓" / "Already saved"
-- [ ] Style the button with inline styles (minimal, unobtrusive, matches page aesthetics)
-- [ ] Create `content/reverso.js` as a stub with comments describing the required implementation
+- [x] Create `content/google_translate.js`
+- [x] Set up `MutationObserver` watching the translation result container
+- [x] Detect primary translation result element and inject a Save button
+- [x] Detect alternative translation rows and inject a Save button on each
+- [x] Read `word` (source input), `translation` (target text), `langFrom`, `langTo` from the page
+- [x] On Save button click: send `{ action: 'save', payload }` to background
+- [x] Handle response states: default / sending / "Saved ✓" / "Already saved"
+- [x] Style the button with inline styles (minimal, unobtrusive, matches page aesthetics)
+- [x] Create `content/reverso.js` as a stub with comments describing the required implementation
 
 **Acceptance:** Open translate.google.com, type a word, Save buttons appear next to the result and alternatives. Clicking saves to storage. Duplicate click shows "Already saved".
 
@@ -59,17 +59,17 @@
 
 ## Task 05 — Normalizer
 
-- [ ] Create `lib/normalizer.js`
-- [ ] Define `INormalizer` base class with `normalize(word, pos)` method
-- [ ] Implement `LocalNormalizer extends INormalizer`:
+- [x] Create `lib/normalizer.js`
+- [x] Define `INormalizer` base class with `normalize(word, pos)` method
+- [x] Implement `LocalNormalizer extends INormalizer`:
   - Verb detection + `to <infinitive>` form
   - Adjective detection + `(adj) <word>`
   - Adverb detection + `(adv) <word>`
-  - Noun detection + `a <word>` (with `pos = 'noun'` so user can override to `(unc)`)
+  - Noun detection + `a`/`an <word>`, or `(unc) <word>` for uncountable nouns
   - Phrase detection: gerund replacement with `Ving`, object pronoun with `sth`
   - Fallback: return as-is
-- [ ] Export `getNormalizer(settings)` factory function
-- [ ] Add `OpenAINormalizer` class stub with `// TODO: implement` and a note about required settings
+- [x] Export `getNormalizer(settings)` factory function
+- [x] Add `OpenAINormalizer` class stub with `// TODO: implement` and a note about required settings
 
 **Acceptance:** Unit-test in browser console:
 - `normalizer.normalize('playing')` → `{ canonical: 'to play', pos: 'verb' }`
@@ -80,15 +80,15 @@
 
 ## Task 06 — Deduplicator
 
-- [ ] Create `lib/deduplicator.js`
-- [ ] Define `IDuplicateDetector` base class with `findDuplicates(words)` method
-- [ ] Implement Levenshtein distance function (pure JS, no deps)
-- [ ] Implement `LocalDeduplicator extends IDuplicateDetector`:
+- [x] Create `lib/deduplicator.js`
+- [x] Define `IDuplicateDetector` base class with `findDuplicates(words)` method
+- [x] Implement Levenshtein distance function (pure JS, no deps)
+- [x] Implement `LocalDeduplicator extends IDuplicateDetector`:
   - Pass 1: exact canonical match (case-insensitive)
   - Pass 2: Levenshtein ≤ 2 on canonical, same POS
   - Return `Array<{ words: Word[], reason: string }>`
-- [ ] Export `getDeduplicator(settings)` factory function
-- [ ] Add `OpenAIDeduplicator` stub
+- [x] Export `getDeduplicator(settings)` factory function
+- [x] Add `OpenAIDeduplicator` stub
 
 **Acceptance:** Call `deduplicator.findDuplicates([...])` with hand-crafted duplicates in console, verify groups returned.
 
@@ -96,13 +96,13 @@
 
 ## Task 07 — Exporter
 
-- [ ] Create `lib/exporter.js`
-- [ ] Implement `buildExportText(words, settings)` → string
+- [x] Create `lib/exporter.js`
+- [x] Implement `buildExportText(words, settings)` → string
   - Uses `canonical || word` as term
   - Applies `exportTermSep` and `exportRowSep` from settings
-- [ ] Implement `downloadAsFile(text, filename)` using Blob + object URL
-- [ ] Implement `copyToClipboard(text)` using `navigator.clipboard.writeText`
-- [ ] Filename format: `vocabular-<groupName>-<YYYY-MM-DD>.txt`
+- [x] Implement `downloadAsFile(text, filename)` using Blob + object URL
+- [x] Implement `copyToClipboard(text)` using `navigator.clipboard.writeText`
+- [x] Filename format: `vocabular-<groupName>-<YYYY-MM-DD>.txt`
 
 **Acceptance:** Call `buildExportText([...], settings)` in console, verify tab-separated output.
 
@@ -110,13 +110,13 @@
 
 ## Task 08 — Popup
 
-- [ ] Create `popup/popup.html` — minimal layout: stats, recent words list, open dashboard button
-- [ ] Create `popup/popup.js`:
+- [x] Create `popup/popup.html` — minimal layout: stats, recent words list, open dashboard button
+- [x] Create `popup/popup.js`:
   - On load: send `getStats` and `getRecentWords` to background
   - Render total count, pending normalization count
   - Render last 5 words as `word → translation` lines
   - "Open Dashboard" button opens `dashboard/index.html` in a new tab
-- [ ] Style with `popup/popup.css` — clean, minimal, ~320px wide
+- [x] Style with `popup/popup.css` — clean, minimal, ~320px wide
 
 **Acceptance:** Click extension icon, popup shows correct counts and recent words.
 
@@ -124,15 +124,15 @@
 
 ## Task 09 — Dashboard: Shell & Words Tab
 
-- [ ] Create `dashboard/index.html` — tab bar + content area shell
-- [ ] Create `dashboard/dashboard.js` — tab switching controller
-- [ ] Create `dashboard/dashboard.css` — base styles, table styles, button styles
-- [ ] Create `dashboard/tabs/words.js`:
+- [x] Create `dashboard/index.html` — tab bar + content area shell
+- [x] Create `dashboard/dashboard.js` — tab switching controller
+- [x] Create `dashboard/dashboard.css` — base styles, table styles, button styles
+- [x] Create `dashboard/tabs/words.js`:
   - Load all words from storage
   - Render table with columns: word, translation, canonical, POS, status, date, actions
   - Filter bar: status, POS, search
-  - Inline edit for `canonical` (click-to-edit text input)
-  - Inline edit for `pos` (click-to-edit select)
+  - Inline edit for `word`, `translation`, `canonical`, `notes`, `savedAt` (click-to-edit input)
+  - Inline edit for `pos` and `status` (click-to-edit select)
   - Auto-save on blur/change
   - Delete button per row
   - "Normalize" button per row (calls `INormalizer`, pre-fills canonical + pos)
@@ -145,7 +145,7 @@
 
 ## Task 10 — Dashboard: Groups Tab
 
-- [ ] Create `dashboard/tabs/groups.js`:
+- [x] Create `dashboard/tabs/groups.js`:
   - Read words and settings from storage
   - Auto-partition words by `savedAt` into groups of `settings.groupSize`
   - Render each group as a card: name (editable), word count, word list (compact)
@@ -160,7 +160,7 @@
 
 ## Task 11 — Dashboard: Export Tab
 
-- [ ] Create `dashboard/tabs/export.js`:
+- [x] Create `dashboard/tabs/export.js`:
   - List groups with checkbox selection
   - Live preview textarea — updates on selection change
   - Shows active format settings inline: "Tab-separated, newline between cards"
@@ -174,7 +174,7 @@
 
 ## Task 12 — Dashboard: Settings Tab
 
-- [ ] Create `dashboard/tabs/settings.js`:
+- [x] Create `dashboard/tabs/settings.js`:
   - Form for all `Settings` fields with labels and current values
   - Group size: number input (min 1, max 500)
   - Term separator: radio buttons (Tab / Comma / Dash)
@@ -195,7 +195,7 @@
 - [ ] Test full flow: save word on Google Translate → view in popup → open dashboard → normalize → export
 - [ ] Verify no `console.error` on any extension page
 - [ ] Verify extension works in Firefox (load as temporary add-on via about:debugging)
-- [ ] Write `README.md`:
+- [x] Write `README.md`:
   - How to load in Chrome (Load unpacked)
   - How to load in Firefox (about:debugging → Load Temporary Add-on)
   - How to use: save → dashboard → normalize → export → import to Quizlet

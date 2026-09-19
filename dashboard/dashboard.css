@@ -243,10 +243,15 @@ tr.dup-highlight td { background: #fff8e1; }
 /* ── Inline edit ──────────────────────────────────────────────────────────── */
 
 .editable {
-  cursor: text;
+  display: block;          /* fill the whole cell, not just the text */
+  box-sizing: border-box;
   min-width: 60px;
-  padding: 2px 4px;
-  border-radius: 3px;
+  min-height: 24px;        /* keep empty cells clickable */
+  cursor: text;
+  /* stretch over the td's padding so the whole cell is the click target */
+  margin: -7px -10px;
+  width: calc(100% + 20px);
+  padding: 7px 10px;
   transition: background .1s;
 }
 
@@ -707,3 +712,7 @@ tr.dup-highlight td { background: #fff8e1; }
 
 .settings-save-indicator.success { color: var(--green); }
 .settings-save-indicator.error   { color: var(--red);   }
+
+.status-badge[data-field] { cursor: pointer; }
+
+.group-card.drag-over { outline: 2px dashed var(--blue); outline-offset: -2px; background: var(--blue-light); }

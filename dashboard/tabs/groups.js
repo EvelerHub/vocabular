@@ -111,9 +111,7 @@ const groupsTab = (function () {
 
     return `
       <div class="group-card ${isExp ? 'group-exported' : ''}"
-           data-group-id="${esc(group.id)}"
-           ondragover="event.preventDefault()"
-           ondrop="groupsTab._onDrop(event,'${esc(group.id)}')">
+           data-group-id="${esc(group.id)}">
 
         <!-- Card header -->
         <div class="group-card-header">
@@ -164,6 +162,24 @@ const groupsTab = (function () {
     // Drag start on word items
     root.querySelectorAll('.group-word-item').forEach(el => {
       el.addEventListener('dragstart', onDragStart);
+    });
+
+    // Drop targets. Bound here (not via inline ondrop/ondragover attributes):
+    // extension pages' CSP blocks inline event handlers, which silently
+    // disables drag-and-drop.
+    root.querySelectorAll('.group-card').forEach(card => {
+      card.addEventListener('dragover', e => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        card.classList.add('drag-over');
+      });
+      card.addEventListener('dragleave', e => {
+        if (!card.contains(e.relatedTarget)) card.classList.remove('drag-over');
+      });
+      card.addEventListener('drop', e => {
+        card.classList.remove('drag-over');
+        _onDrop(e, card.dataset.groupId);
+      });
     });
   }
 
@@ -275,7 +291,6 @@ const groupsTab = (function () {
 
   // ── Public API ─────────────────────────────────────────────────────────────
 
-  // _onDrop is called from inline ondrop handlers in the HTML, so expose it
-  return { init, _onDrop };
+  return { init };
 
 })();

@@ -31,6 +31,14 @@ with no backend, no install step beyond loading the extension.
    "bank" → "берег"); each distinct translation is a separate vocabulary entry and SHALL be
    saved independently. Duplicate detection MUST include `translation` — matching on `word` alone
    is incorrect.
+6. **Resilience to page re-renders:** Google Translate re-renders a translation row when the user
+   expands or collapses an option, which removes injected elements (attributes on the row itself
+   may survive). The content script SHALL therefore:
+   - decide whether a row needs a button by checking that a Save button is actually present and
+     matches the current `word|translation`, never by a marker attribute on the row;
+   - re-create missing or stale buttons after every relevant DOM change;
+   - observe a stable ancestor (`document.body`), not an individual row, since rows can be
+     replaced wholesale.
 
 ### REQ-02 — Source Abstraction
 
@@ -81,6 +89,9 @@ with no backend, no install step beyond loading the extension.
    ```
 6. A storage service module SHALL wrap all reads and writes so no other module calls
    `chrome.storage` directly.
+7. `storage.updateWord` SHALL protect only `id`; every other field, including `savedAt`, can be
+   edited from the dashboard.
+8. `storage.regroupWords(groupSize)` SHALL re-partition words in a single write (see REQ-07).
 
 ### REQ-04 — Normalization
 
@@ -91,11 +102,14 @@ with no backend, no install step beyond loading the extension.
    - Verb (any conjugation) → `to <base form>`  e.g. `playing` → `to play`
    - Adjective → `(adj) <word>`  e.g. `awesome` → `(adj) awesome`
    - Adverb → `(adv) <word>`  e.g. `awfully` → `(adv) awfully`
-   - Countable noun → `a <word>`  e.g. `dog` → `a dog`
-   - Uncountable noun → system suggests `a <word>`, user can override to `<word> (unc)` in dashboard
+   - Countable noun → `a <word>` / `an <word>` (by first sound)  e.g. `dog` → `A dog`, `apple` → `An apple`
+   - Uncountable noun (compromise `Uncountable` tag) → `(unc) <word>`  e.g. `water` → `(unc) water`; user can still override in dashboard
    - Phrase ending in gerund → replace gerund with `Ving`  e.g. `can't help telling` → `can't help Ving`
    - Phrase containing object pronoun (it/him/her/them/sth) → replace with `sth`
      e.g. `can't stand it` → `can't stand sth`
+   - **Articles:** `a` vs `an` is chosen by the first *sound*, not letter (`an hour`,
+     `a university`, `a one-off`). Countability comes from compromise's lexicon, which is not
+     exhaustive; a missed uncountable noun yields `a <word>` and is corrected manually.
 4. **POS detection from Google Translate UI:** Google Translate displays a grammatical label
    (`span.jq25U`) next to each translation. The content script SHALL read this label at save time
    and store it as the `pos` field, using the following mapping:
@@ -137,9 +151,16 @@ with no backend, no install step beyond loading the extension.
 
 1. The dashboard SHALL be a full extension page (`dashboard/index.html`) opened from the popup.
 2. The Words tab SHALL display all saved words in a table with columns:
-   `(checkbox) | word | translation | canonical | POS | status | saved date | actions`
+   `(checkbox) | word | translation | canonical | POS | status | saved date | notes | actions`
 3. The user SHALL be able to:
-   - Edit `canonical` and `pos` inline
+   - Edit **every column inline**: `word`, `translation`, `canonical`, `notes` and `savedAt`
+     (click the cell → text / date input; Enter or blur saves, Escape cancels), and `pos` and
+     `status` (click the badge → select). An unchanged value is not written. An empty `word` or
+     `savedAt` is rejected with a message; `translation`, `canonical` and `notes` may be cleared.
+   - Editing `savedAt` keeps the original time of day. Editing `word` does not re-run
+     normalization (use the row's Normalize action).
+   - The click target of an editable cell SHALL be the whole table cell, including when it is
+     empty (minimum height, stretched over the cell padding).
    - Trigger "Normalize" on a single word (runs `INormalizer`)
    - Trigger "Normalize all raw" (bulk)
    - Delete a word
@@ -165,8 +186,20 @@ with no backend, no install step beyond loading the extension.
 
 1. The Groups tab SHALL show words auto-partitioned into groups of `settings.groupSize`.
 2. Words are grouped in order of `savedAt` (oldest first).
-3. The user SHALL be able to rename groups and manually move words between groups.
+3. The user SHALL be able to rename groups and manually move words between groups by
+   drag-and-drop. Drop targets SHALL be wired with `addEventListener` (never inline
+   `ondrop`/`ondragover` attributes, which the extension CSP blocks), and the hovered group
+   SHALL be highlighted while dragging.
 4. Words with `status = 'exported'` SHALL be visually distinguished.
+5. **Regrouping on group-size change:** when `groupSize` is changed in Settings, all words
+   outside exported groups SHALL be re-partitioned (oldest first) into groups of the new size.
+   - Existing non-exported groups are reused in order (keeping id and name); new `Set N` groups
+     are created as needed; surplus groups are removed.
+   - Exported groups and their words are never touched.
+   - Manual drag-and-drop placement in non-exported groups is reset, so the user SHALL be shown
+     a confirmation dialog (old → new size, what will be reset) before anything changes.
+     Declining keeps the old size and restores the input value.
+   - The operation is one storage write (`storage.regroupWords`).
 
 ### REQ-08 — Dashboard: Export Tab
 
@@ -184,7 +217,8 @@ with no backend, no install step beyond loading the extension.
 ### REQ-09 — Dashboard: Settings Tab
 
 1. The Settings tab SHALL expose all `Settings` fields as form inputs with labels and defaults shown.
-2. Settings SHALL be saved to `chrome.storage.local` on change (debounced).
+2. Settings SHALL be saved to `chrome.storage.local` on change (debounced). Changing the group
+   size additionally triggers the confirmed regroup described in REQ-07.
 3. A "Export all data (backup)" button SHALL download the full storage as a JSON file.
 4. A "Import backup" button SHALL restore from a previously exported JSON file.
 
@@ -215,6 +249,8 @@ with no backend, no install step beyond loading the extension.
    loaded in the background service worker (it throws when `chrome.runtime` is absent).
 6. No code changes are required when switching between Chrome and Firefox builds — only
    the manifest file differs.
+7. **Extension-page CSP:** extension pages SHALL NOT use inline event-handler attributes
+   (`onclick=`, `ondrop=`, …); all handlers are attached with `addEventListener`.
 
 ### REQ-12 — No External Network Calls
 
@@ -222,3 +258,17 @@ with no backend, no install step beyond loading the extension.
 2. All logic (NLP, dedup) SHALL run entirely offline.
 3. The OpenAI API key field SHALL only be used when the user explicitly configures it and
    switches the engine setting. No key → no calls.
+
+### REQ-13 — Build & Release
+
+1. `dist/` is generated output and SHALL NOT be tracked in git (`.gitignore`). It is produced by
+   `build.sh <chrome|firefox>` locally and by the release workflow in CI.
+2. The packaged extension SHALL contain only extension files: `build.sh` and the release
+   workflow exclude `.git/`, `.github/`, `.idea/`, `.kiro/`, `.gitignore`, shell scripts and the
+   alternate manifests.
+3. `CHANGELOG.md` SHALL list changes per version under headings of the form `## [x.y.z]`.
+4. The release workflow (`.github/workflows/release.yml`, triggered by a `v*.*.*` tag or
+   manually) SHALL build Chrome and Firefox zips and publish a GitHub release whose notes are
+   the matching `CHANGELOG.md` section followed by the install instructions from
+   `.github/release-install.md` (`__VERSION__` substituted). A missing changelog section SHALL
+   produce a warning, not a failure.

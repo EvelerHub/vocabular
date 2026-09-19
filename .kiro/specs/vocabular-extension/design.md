@@ -272,7 +272,7 @@ Single HTML page, tab-based, vanilla JS (no framework needed for this scope).
 - "Normalize all raw" button
 - "Find Duplicates" button  
 - Table: word | translation | canonical (editable) | POS (editable select) | status | date | [delete]
-- Inline edit: click canonical cell → text input; click POS → select; auto-save on blur
+- Inline edit: click any cell (word, translation, canonical, notes, date) → text/date input; click POS or status → select; auto-save on blur
 
 ### Groups Tab
 - Cards layout, one card per group

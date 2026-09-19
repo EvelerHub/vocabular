@@ -31,6 +31,9 @@ rsync -a \
   --exclude="manifest.firefox.json" \
   --exclude="manifest.json" \
   --exclude="dist/" \
+  --exclude=".github/" \
+  --exclude=".idea/" \
+  --exclude=".gitignore" \
   --exclude=".kiro/" \
   --exclude="build.sh" \
   --exclude="*.sh" \

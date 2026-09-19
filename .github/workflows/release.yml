@@ -62,6 +62,8 @@ jobs:
             --exclude="dist/" \
             --exclude=".github/" \
             --exclude=".kiro/" \
+            --exclude=".idea/" \
+            --exclude=".gitignore" \
             --exclude="build.sh" \
             --exclude=".git/" \
             . dist/chrome/
@@ -84,6 +86,8 @@ jobs:
             --exclude="dist/" \
             --exclude=".github/" \
             --exclude=".kiro/" \
+            --exclude=".idea/" \
+            --exclude=".gitignore" \
             --exclude="build.sh" \
             --exclude=".git/" \
             . dist/firefox/
@@ -94,6 +98,29 @@ jobs:
           cd dist/firefox
           zip -r ../../vocabular-firefox-${{ steps.version.outputs.VERSION }}.zip .
 
+      # ── Release notes ───────────────────────────────────────────────────────
+      # Extracts the "## [<version>]" section from CHANGELOG.md and prepends it
+      # to the installation instructions.
+
+      - name: Build release notes
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          awk -v v="$VERSION" '
+            /^## \[/ { if (found) exit; if (index($0, "## [" v "]") == 1) { found=1; next } }
+            found { print }
+          ' CHANGELOG.md > changes.md
+          if [ ! -s changes.md ]; then
+            echo "::warning::No section for $VERSION in CHANGELOG.md"
+            echo "_No changelog entry for this version._" > changes.md
+          fi
+          {
+            echo "## What's new"
+            echo
+            cat changes.md
+            echo
+            sed "s/__VERSION__/$VERSION/g" .github/release-install.md
+          } > release-notes.md
+
       # ── GitHub Release ──────────────────────────────────────────────────────
 
       - name: Create GitHub Release
@@ -101,26 +128,7 @@ jobs:
         with:
           tag_name: ${{ steps.version.outputs.TAG }}
           name: "Vocabular v${{ steps.version.outputs.VERSION }}"
-          body: |
-            ## Installation
-
-            ### Chrome / Chromium / Edge
-            1. Download `vocabular-chrome-${{ steps.version.outputs.VERSION }}.zip` and unzip it
-            2. Go to `chrome://extensions` → enable **Developer mode**
-            3. Click **Load unpacked** → select the unzipped folder
-
-            ### Firefox
-            1. Download `vocabular-firefox-${{ steps.version.outputs.VERSION }}.zip` *(do not unzip)*
-            2. Go to `about:debugging#/runtime/this-firefox`
-            3. Click **Load Temporary Add-on…** → select the `.zip` file
-
-            > The temporary add-on is removed when Firefox restarts.
-            > For a **persistent install without signing**, use Firefox Developer Edition or Firefox Nightly:
-            > 1. Go to `about:config` → accept the risk warning
-            > 2. Set `xpinstall.signatures.required` to `false`
-            > 3. Go to `about:addons` → gear icon → **Install Add-on From File** → select the `.zip`
-            >
-            > Standard Firefox releases cannot permanently install unsigned extensions.
+          body_path: release-notes.md
           files: |
             vocabular-chrome-${{ steps.version.outputs.VERSION }}.zip
             vocabular-firefox-${{ steps.version.outputs.VERSION }}.zip

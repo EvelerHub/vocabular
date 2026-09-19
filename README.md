@@ -190,11 +190,12 @@ When a POS tag was captured at save time (from the Google Translate UI), the nor
 | `playing`, `played`, `plays` | `to play` | verb |
 | `awesome`, `beautiful` | `(adj) awesome` | adj |
 | `awfully`, `quickly` | `(adv) awfully` | adv |
-| `dog`, `happiness` | `a dog` | noun |
+| `dog`, `apple` | `a dog`, `an apple` | noun |
+| `water`, `music` | `(unc) water` | noun (uncountable) |
 | `can't help telling` | `can't help Ving` | phrase |
 | `can't stand it` | `can't stand sth` | phrase |
 
-For **uncountable nouns** (`water`, `music`): the system suggests `a water` — change it to `water (unc)` in the Canonical column by clicking to edit.
+Uncountable nouns are detected via compromise's lexicon, which is not exhaustive. If one is missed (you get `a <word>`), edit the Canonical column to `(unc) <Word>`.
 
 ---
 

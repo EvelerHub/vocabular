@@ -54,9 +54,6 @@
     posLabel:         'span.jq25U',
   };
 
-  // Marker attribute so we don't inject duplicate buttons
-  const INJECTED_ATTR = 'data-voc-injected';
-
   // ── Language helpers ───────────────────────────────────────────────────────
 
   /**
@@ -200,7 +197,7 @@
 
   /**
    * Injects a Save button next to the primary translation result.
-   * Safe to call multiple times — checks INJECTED_ATTR guard.
+   * Safe to call multiple times — skips if an up-to-date button is present.
    */
   function injectMainResultButton() {
     const resultSpan = document.querySelector(SEL.mainResult);
@@ -208,8 +205,6 @@
     const resultBlock = document.querySelector(SEL.mainResultBlock);
     
     if (!resultSpan || !resultBlock) return;
-    const oldBtn = resultBlock.querySelector(`.voc-save-btn`)
-    if (oldBtn) return;
 
     const translation = resultSpan.textContent.trim();
     if (!translation) return;
@@ -217,8 +212,14 @@
     const word = getSourceWord();
     if (!word) return;
 
+    const key = `${word}|${translation}`;
+    const oldBtn = resultBlock.querySelector('.voc-save-btn');
+    if (oldBtn && oldBtn.dataset.vocKey === key) return;
+    if (oldBtn) oldBtn.remove();
+
     const pos = readPosFromContainer(resultBlock);
     const btn = createSaveButton(word, translation, pos);
+    btn.dataset.vocKey = key;
 
     // Insert after the result span, inside its parent block
     resultSpan.parentNode.insertBefore(btn, resultSpan.nextSibling);
@@ -228,7 +229,7 @@
 
   /**
    * Injects Save buttons on all alternative translation rows.
-   * Safe to call multiple times — skips already-injected rows.
+   * Safe to call multiple times — skips rows that already have an up-to-date button.
    */
   function injectAltRowButtons() {
     const altPanel = document.querySelector(SEL.altPanel);
@@ -236,8 +237,6 @@
 
     const rows = altPanel.querySelectorAll(SEL.altRow);
     rows.forEach(row => {
-      if (row.hasAttribute(INJECTED_ATTR)) return;
-
       const cell = row.querySelector(SEL.altCell);
       if (!cell) return;
 
@@ -247,16 +246,23 @@
       const word = getSourceWord();
       if (!word) return;
 
+      // Google re-renders a row's contents when an option is expanded/collapsed
+      // (our button is wiped, but attributes on the row itself may survive), so
+      // decide by whether a matching button is actually present in the row.
+      const key = `${word}|${translation}`;
+      const oldBtn = row.querySelector('.voc-save-btn');
+      if (oldBtn && oldBtn.dataset.vocKey === key) return;
+      row.querySelectorAll('td.voc-btn-cell').forEach(td => td.remove());
+
       const pos = readPosFromContainer(row);
       const btn = createSaveButton(word, translation, pos);
+      btn.dataset.vocKey = key;
 
       // Append a new <td> containing the button
       const td = document.createElement('td');
       td.className = 'voc-btn-cell';
       td.appendChild(btn);
       row.appendChild(td);
-
-      row.setAttribute(INJECTED_ATTR, '1');
     });
   }
 
@@ -283,37 +289,24 @@
   }
 
   /**
-   * Clears all injected buttons and INJECTED_ATTR marks.
+   * Clears all injected buttons.
    * Called when a new translation is detected so buttons stay fresh.
    */
   function clearInjected() {
     document.querySelectorAll(`.voc-save-btn`).forEach(btn => btn.remove());
-    document.querySelectorAll(`[${INJECTED_ATTR}]`).forEach(el => {
-      el.removeAttribute(INJECTED_ATTR);
-    });
     // Also remove injected <td> cells in alt rows
     document.querySelectorAll('td.voc-btn-cell').forEach(td => td.remove());
   }
 
   /**
-   * Watches the output panel (or app root as fallback) for DOM changes.
+   * Watches the whole page for DOM changes. A stable ancestor is used on purpose:
+   * Google replaces translation rows when they are expanded, so observing a
+   * specific row would silently stop firing. injectAll() is idempotent, so our
+   * own insertions settle after one extra pass.
    */
   function startObserver() {
-    const target = document.querySelector(SEL.mainResultBlock);
-
-    const observer = new MutationObserver(mutations => {
-      // Check if the main result text has changed — if so, clear old buttons first
-      const hasResultChange = mutations.some(m => m.target === document.querySelector(SEL.mainResultBlock));
-
-      if (hasResultChange) {
-        console.log("CHANGED");
-        clearInjected();
-      }
-
-      scheduleInject();
-    });
-
-    observer.observe(target, { childList: true, subtree: true });
+    const observer = new MutationObserver(scheduleInject);
+    observer.observe(document.body, { childList: true, subtree: true });
   }
 
   // ── Source input change detection ──────────────────────────────────────────

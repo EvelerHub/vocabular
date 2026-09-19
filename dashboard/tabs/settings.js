@@ -269,7 +269,30 @@ const settingsTab = (function () {
 
   async function persistSettings() {
     try {
+      const previous = await storage.getSettings();
+      if (settings.groupSize !== previous.groupSize) {
+        const groups = await storage.getGroups();
+        if (groups.some(g => !g.exportedAt) &&
+            !confirm(
+              `Change group size from ${previous.groupSize} to ${settings.groupSize}?\n\n` +
+              'All words outside exported groups will be regrouped by date. ' +
+              'Words you moved between groups manually will be reset. ' +
+              'Exported groups are not affected.')) {
+          // Declined — keep the old size
+          settings.groupSize = previous.groupSize;
+          const input = document.getElementById('set-group-size');
+          if (input) input.value = String(previous.groupSize);
+          showSaveIndicator('');
+          return;
+        }
+      }
       settings = await storage.saveSettings(settings);
+      if (settings.groupSize !== previous.groupSize) {
+        // Group size changed — re-partition existing (non-exported) groups
+        const r = await storage.regroupWords(settings.groupSize);
+        showSaveIndicator(`Saved ✓ — regrouped ${r.words} words into ${r.groups} groups`, 'success');
+        return;
+      }
       showSaveIndicator('Saved ✓', 'success');
     } catch (err) {
       showSaveIndicator('Save failed', 'error');
